@@ -300,21 +300,6 @@
     renderFeed(feed);
   }
 
-  function setupRealtime() {
-    const socket = window.LabApi.connectRealtime(
-      () => {
-        refreshAll();
-      },
-      (state) => {
-        if (state === "connected") setCommandState("实时订阅已连接", "done");
-        if (state === "error") setCommandState("实时订阅异常", "fail");
-        if (state === "closed") setCommandState("实时订阅已断开", "");
-      }
-    );
-
-    return socket;
-  }
-
   function setCommandState(text, className) {
     els.commandState.textContent = text;
     els.commandState.className = `command-state ${className || ""}`.trim();
@@ -354,6 +339,5 @@
 
   bindEvents();
   refreshAll();
-  setupRealtime();
   window.setInterval(refreshAll, window.LabConfig?.POLL_INTERVAL_MS || 2500);
 })();

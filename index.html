@@ -35,8 +35,8 @@
               <ol>
                 <li>设备上报温湿度、烟雾、光照、门禁等属性。</li>
                 <li>华为云 IoTDA 接收并保存设备数据。</li>
-                <li>后端服务从 IoTDA 查询或接收转发数据。</li>
-                <li>Web 页面调用后端接口刷新显示。</li>
+                <li>Web 页面通过 HTTP 查询 IoTDA 设备影子。</li>
+                <li>页面根据返回的 reported 属性刷新显示。</li>
               </ol>
             </div>
             <div class="mini-feed" id="activityFeed"></div>
