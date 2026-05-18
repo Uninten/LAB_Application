@@ -33,12 +33,12 @@
       // paras 里的字段名必须和该命令的参数名完全一致；如果云平台定义的是 DoorStatus/FanStatus，就把 status 改成对应名称。
       COMMANDS: {
         openDoor: { command_name: "OpenDoor", paras: { DoorStatus: 1 } },
-        closeDoor: { command_name: "CloseDoor", paras: {} },
-        openFan: { command_name: "OpenFan", paras: {} },
-        closeFan: { command_name: "CloseFan", paras: {} },
-        openLight: { command_name: "OpenLight", paras: {} },
-        closeLight: { command_name: "CloseLight", paras: {} },
-        resetAlarm: { command_name: "ResetAlarm", paras: {} }
+        closeDoor: { command_name: "CloseDoor", paras: { DoorStatus: 0 } },
+        openFan: { command_name: "OpenFan", paras: { FanStatus: 1 } },
+        closeFan: { command_name: "CloseFan", paras: { FanStatus: 0 } },
+        openLight: { command_name: "OpenLight", paras: { LightStatus: 1 } },
+        closeLight: { command_name: "CloseLight", paras: { LightStatus: 0 } },
+        resetAlarm: { command_name: "ResetAlarm", paras: { AlarmStatus: 0 } }
       },
 
       // IoTDA 实例 ID；如果接口要求请求头 Instance-Id 就填写，否则保持空字符串。
