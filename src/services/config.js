@@ -1,16 +1,48 @@
 (function () {
   window.LabConfig = {
-    // 填云平台同学提供的后端接口地址，不要填华为云 AK/SK、Token 或设备密钥。
-    // 示例：http://localhost:3000
-    API_BASE_URL: "",
+    DEVICE_ID: "6a0437cdcbb0cf6bb95a67a7_1778682539386",
 
-    // 后端如果支持 WebSocket 实时推送，就填写这里；不支持可以留空，页面会自动使用 HTTP 轮询。
-    // 示例：ws://localhost:3000/ws
-    WS_URL: "",
+    // 页面向华为云查询设备影子的轮询间隔，单位毫秒。
+    POLL_INTERVAL_MS: 2500,
 
-    DEVICE_ID: "Lab_Device_01",
+    // 浏览器直接请求华为云 IoTDA。课程设计本地演示可使用。
+    DIRECT_HUAWEI: {
+      // 是否启用华为云直连模式：true 表示直接请求华为云，false 表示页面保持等待数据状态。
+      ENABLED: true,
 
-    // HTTP 轮询间隔，单位毫秒。
-    POLL_INTERVAL_MS: 2500
+      // 华为云 IoTDA 应用侧 API 地址，由云平台负责人提供，例如 https://xxxx.iotda-app.cn-north-4.myhuaweicloud.com。
+      IOTDA_ENDPOINT: "https://130a97bf5d.st1.iotda-app.cn-north-4.myhuaweicloud.com",
+
+      // 华为云项目 ID，不是账号 ID；可在“我的凭证/项目”中查看。
+      PROJECT_ID: "0d8e6ac1f0a04b4e8137b40b777d4d95",
+
+      // 华为云 IoTDA 中创建的设备 ID，需要和云平台设备详情中的 device_id 一致。
+      DEVICE_ID: "6a0437cdcbb0cf6bb95a67a7_1778682539386",
+
+      // 临时 IAM Token，用于浏览器请求华为云 API；Token 过期后需要重新获取并替换。
+      IAM_TOKEN: "MIIPGwYJKoZIhvcNAQcCoIIPDDCCDwgCAQExDTALBglghkgBZQMEAgEwgg0tBgkqhkiG9w0BBwGggg0eBIINGnsidG9rZW4iOnsiZXhwaXJlc19hdCI6IjIwMjYtMDUtMTlUMDQ6NTI6MzMuNTI5MDAwWiIsInNpZ25hdHVyZSI6IkVBcGpiaTF1YjNKMGFDMDBBQUFBQUFBQUJPbEplc0wvV3hwWWoxYmJRTytHNER2d0h0TVJKUVN5UCt4SDFCNWswVzBYMlN3YzI2ZzAyRHBPRXRqUmw2TUVoc2libDBQaXpNc3Rmakt6aEd4aG1oZVNNUXl6elgvZlFEbVhCaWZPbTNnbHBpV3lLakpqSmd3TlJPM2dUcy9jNU4wK3pxNDFsRXB3RU1PKzNNNHpzbDdjL3VwSXJiTXpPRnRYQm1PZG5hbmNZSDYrdTN0cC8zNmkxbFQrZG5CQWppc0txRjhmbWNwclNzZEFVSVlUN3h4ckxIaERMV1N2TjA3Q0JzL05sUTI5ZzNQUUwwU0RwK3o1MVpFN2ZCMHlmVGVIWk15elVzNUVETHpoa3hoS0tJQ002Z0JSOUR1aEhHekc5Z3pLVVArS2VrUldiNzBCbE4vV21PU0dwQk5CUjVNNTRTdVFPa0ZWUmRNNjZLVHhsVlVOIiwibWV0aG9kcyI6WyJwYXNzd29yZCJdLCJjYXRhbG9nIjpbXSwicm9sZXMiOlt7Im5hbWUiOiJ0ZV9hZG1pbiIsImlkIjoiMCJ9LHsibmFtZSI6InRlX2FnZW5jeSIsImlkIjoiMCJ9LHsibmFtZSI6Im9wX2dhdGVkX2NzYnNfcmVwX2FjY2VsZXJhdGlvbiIsImlkIjoiMCJ9LHsibmFtZSI6Im9wX2dhdGVkX2Vjc19kaXNrQWNjIiwiaWQiOiIwIn0seyJuYW1lIjoib3BfZ2F0ZWRfZHNzX21vbnRoIiwiaWQiOiIwIn0seyJuYW1lIjoib3BfZ2F0ZWRfb2JzX2RlZXBfYXJjaGl2ZSIsImlkIjoiMCJ9LHsibmFtZSI6Im9wX2dhdGVkX2FfY24tc291dGgtNGMiLCJpZCI6IjAifSx7Im5hbWUiOiJvcF9nYXRlZF9kZWNfbW9udGhfdXNlciIsImlkIjoiMCJ9LHsibmFtZSI6Im9wX2dhdGVkX2Nicl9zZWxsb3V0IiwiaWQiOiIwIn0seyJuYW1lIjoib3BfZ2F0ZWRfZWNzX29sZF9yZW91cmNlIiwiaWQiOiIwIn0seyJuYW1lIjoib3BfZ2F0ZWRfZXZzX1JveWFsdHkiLCJpZCI6IjAifSx7Im5hbWUiOiJvcF9nYXRlZF93ZWxpbmticmlkZ2VfZW5kcG9pbnRfYnV5IiwiaWQiOiIwIn0seyJuYW1lIjoib3BfZ2F0ZWRfY2JyX2ZpbGUiLCJpZCI6IjAifSx7Im5hbWUiOiJvcF9nYXRlZF9kbXMtcm9ja2V0bXE1LWJhc2ljIiwiaWQiOiIwIn0seyJuYW1lIjoib3BfZ2F0ZWRfZXZzX0VTaW5nbGVfY29weVNTRCIsImlkIjoiMCJ9LHsibmFtZSI6Im9wX2dhdGVkX2Rtcy1rYWZrYTMiLCJpZCI6IjAifSx7Im5hbWUiOiJvcF9nYXRlZF9vYnNfZGVjX21vbnRoIiwiaWQiOiIwIn0seyJuYW1lIjoib3BfZ2F0ZWRfY3Nic19yZXN0b3JlIiwiaWQiOiIwIn0seyJuYW1lIjoib3BfZ2F0ZWRfY2JyX3Ztd2FyZSIsImlkIjoiMCJ9LHsibmFtZSI6Im9wX2dhdGVkX2lkbWVfbWJtX2ZvdW5kYXRpb24iLCJpZCI6IjAifSx7Im5hbWUiOiJvcF9wY192ZW5kb3Jfc3VidXNlciIsImlkIjoiMCJ9LHsibmFtZSI6Im9wX2dhdGVkX211bHRpX2JpbmQiLCJpZCI6IjAifSx7Im5hbWUiOiJvcF9nYXRlZF9ldnNfc3NkX2VudHJ5IiwiaWQiOiIwIn0seyJuYW1lIjoib3BfZ2F0ZWRfc21uX2NhbGxub3RpZnkiLCJpZCI6IjAifSx7Im5hbWUiOiJvcF9nYXRlZF9hX2FwLXNvdXRoZWFzdC0zZCIsImlkIjoiMCJ9LHsibmFtZSI6Im9wX2dhdGVkX2NzYnNfcHJvZ3Jlc3NiYXIiLCJpZCI6IjAifSx7Im5hbWUiOiJvcF9nYXRlZF9jZXNfcmVzb3VyY2Vncm91cF90YWciLCJpZCI6IjAifSx7Im5hbWUiOiJvcF9nYXRlZF9ldnNfcmV0eXBlIiwiaWQiOiIwIn0seyJuYW1lIjoib3BfZ2F0ZWRfa29vbWFwIiwiaWQiOiIwIn0seyJuYW1lIjoib3BfZ2F0ZWRfZG1zLWFtcXAtYmFzaWMiLCJpZCI6IjAifSx7Im5hbWUiOiJvcF9nYXRlZF9ldnNfcG9vbF9jYSIsImlkIjoiMCJ9LHsibmFtZSI6Im9wX2dhdGVkX2FfY24tc291dGh3ZXN0LTJiIiwiaWQiOiIwIn0seyJuYW1lIjoib3BfZ2F0ZWRfaHdjcGgiLCJpZCI6IjAifSx7Im5hbWUiOiJvcF9nYXRlZF9lY3Nfb2ZmbGluZV9kaXNrXzQiLCJpZCI6IjAifSx7Im5hbWUiOiJvcF9nYXRlZF9zbW5fd2VsaW5rcmVkIiwiaWQiOiIwIn0seyJuYW1lIjoib3BfZ2F0ZWRfaHZfdmVuZG9yIiwiaWQiOiIwIn0seyJuYW1lIjoib3BfZ2F0ZWRfYV9jbi1ub3J0aC00ZSIsImlkIjoiMCJ9LHsibmFtZSI6Im9wX2dhdGVkX2FfY24tbm9ydGgtNGQiLCJpZCI6IjAifSx7Im5hbWUiOiJvcF9nYXRlZF9lY3NfaGVjc194IiwiaWQiOiIwIn0seyJuYW1lIjoib3BfZ2F0ZWRfY2JyX2ZpbGVzX2JhY2t1cCIsImlkIjoiMCJ9LHsibmFtZSI6Im9wX2dhdGVkX2Vjc19hYzciLCJpZCI6IjAifSx7Im5hbWUiOiJvcF9nYXRlZF9lcHMiLCJpZCI6IjAifSx7Im5hbWUiOiJvcF9nYXRlZF9jc2JzX3Jlc3RvcmVfYWxsIiwiaWQiOiIwIn0seyJuYW1lIjoib3BfZ2F0ZWRfYV9jbi1ub3J0aC00ZiIsImlkIjoiMCJ9LHsibmFtZSI6Im9wX2dhdGVkX29wX2dhdGVkX3JvdW5kdGFibGUiLCJpZCI6IjAifSx7Im5hbWUiOiJvcF9nYXRlZF9ldnNfZXh0IiwiaWQiOiIwIn0seyJuYW1lIjoib3BfZ2F0ZWRfcGZzX2RlZXBfYXJjaGl2ZSIsImlkIjoiMCJ9LHsibmFtZSI6Im9wX2dhdGVkX2FfYXAtc291dGhlYXN0LTFlIiwiaWQiOiIwIn0seyJuYW1lIjoib3BfZ2F0ZWRfYV9ydS1tb3Njb3ctMWIiLCJpZCI6IjAifSx7Im5hbWUiOiJvcF9nYXRlZF9hX2FwLXNvdXRoZWFzdC0xZCIsImlkIjoiMCJ9LHsibmFtZSI6Im9wX2dhdGVkX2FwcHN0YWdlIiwiaWQiOiIwIn0seyJuYW1lIjoib3BfZ2F0ZWRfYV9hcC1zb3V0aGVhc3QtMWYiLCJpZCI6IjAifSx7Im5hbWUiOiJvcF9nYXRlZF9zbW5fYXBwbGljYXRpb24iLCJpZCI6IjAifSx7Im5hbWUiOiJvcF9nYXRlZF9ldnNfY29sZCIsImlkIjoiMCJ9LHsibmFtZSI6Im9wX2dhdGVkX2Vjc19ncHVfZzVyIiwiaWQiOiIwIn0seyJuYW1lIjoib3BfZ2F0ZWRfb3BfZ2F0ZWRfbWVzc2FnZW92ZXI1ZyIsImlkIjoiMCJ9LHsibmFtZSI6Im9wX2dhdGVkX2Vjc19yaSIsImlkIjoiMCJ9LHsibmFtZSI6Im9wX2dhdGVkX2FfcnUtbm9ydGh3ZXN0LTJjIiwiaWQiOiIwIn0seyJuYW1lIjoib3BfZ2F0ZWRfaWVmX3BsYXRpbnVtIiwiaWQiOiIwIn1dLCJwcm9qZWN0Ijp7ImRvbWFpbiI6eyJuYW1lIjoiR1QtQWRyZWEiLCJpZCI6IjU0ZWYxNTNjYjM4ZDQyODJiMzJhNzRmY2Y3MzEwN2RiIn0sIm5hbWUiOiJjbi1ub3J0aC00IiwiaWQiOiIwZDhlNmFjMWYwYTA0YjRlODEzN2I0MGI3NzdkNGQ5NSJ9LCJpc3N1ZWRfYXQiOiIyMDI2LTA1LTE4VDA0OjUyOjMzLjUyOTAwMFoiLCJ1c2VyIjp7ImRvbWFpbiI6eyJuYW1lIjoiR1QtQWRyZWEiLCJpZCI6IjU0ZWYxNTNjYjM4ZDQyODJiMzJhNzRmY2Y3MzEwN2RiIn0sIm5hbWUiOiJHVC1BZHJlYSIsInBhc3N3b3JkX2V4cGlyZXNfYXQiOiIiLCJpZCI6IjdhYjYzN2JlNmNmMDQ3ZjRhOTBiNWZmNTY1ZGQ2ZjBlIn19fTGCAcEwggG9AgEBMIGXMIGJMQswCQYDVQQGEwJDTjESMBAGA1UECAwJR3VhbmdEb25nMREwDwYDVQQHDAhTaGVuWmhlbjEuMCwGA1UECgwlSHVhd2VpIFNvZnR3YXJlIFRlY2hub2xvZ2llcyBDby4sIEx0ZDEOMAwGA1UECwwFQ2xvdWQxEzARBgNVBAMMCmNhLmlhbS5wa2kCCQDcsytdEGFqEDALBglghkgBZQMEAgEwDQYJKoZIhvcNAQEBBQAEggEAO0yF+oC1Hjdskubx3fsQ9-FA+68SjIL2DuBsj1VWFs3Fsz1nDpVi0uvhotWrqLP7cG3T3PkjIhoBt6WHsx5n2qam+CHmi-i+VUh5UKb6Ih0nHxgbDXs6NYujFNzmwVdZgUkO5wg2k4l5B5um2ZLIycihKLbxx9lyVDBQ8Ot7PAgQ0FaOUnBy2xR8i5RQm3LOiME8-oY5BKhh7I3Wfz2MwRWj-FIe08dyY5ic-61yAt9PAJFXVk7SRBgJpy6v98ukFw3zrsAUQT77Lboickxw3EmxyYHe39K6SdMDTKsdCM61Utll+-wh1qlKEWjznFdibdHhjFSk0ubwhKAW735O8w==",
+
+      // 华为云物模型中的服务 ID，需要和产品物模型里定义的 service_id 一致。
+      SERVICE_ID: "Sensor",
+
+      // 命令接口类型：MQTT 设备一般用 sync；如果你在华为云接口调试里确认要用异步命令，可改为 async。
+      COMMAND_API: "sync",
+
+      // Web 按钮到华为云物模型命令的映射。
+      // command_name 必须和“产品 -> 物模型 -> 命令”中定义的命令名完全一致。
+      // paras 里的字段名必须和该命令的参数名完全一致；如果云平台定义的是 DoorStatus/FanStatus，就把 status 改成对应名称。
+      COMMANDS: {
+        openDoor: { command_name: "OpenDoor", paras: { DoorStatus: 1 } },
+        closeDoor: { command_name: "CloseDoor", paras: {} },
+        openFan: { command_name: "OpenFan", paras: {} },
+        closeFan: { command_name: "CloseFan", paras: {} },
+        openLight: { command_name: "OpenLight", paras: {} },
+        closeLight: { command_name: "CloseLight", paras: {} },
+        resetAlarm: { command_name: "ResetAlarm", paras: {} }
+      },
+
+      // IoTDA 实例 ID；如果接口要求请求头 Instance-Id 就填写，否则保持空字符串。
+      INSTANCE_ID: ""
+    }
   };
 })();

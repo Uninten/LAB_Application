@@ -1,88 +1,153 @@
 # 智能实验室安全管理系统 - 应用端 Web
 
-本目录用于存放课设中“应用端”部分的 Web 程序、任务清单、接口说明和后续联调记录。
+本目录用于存放课设中“应用端”部分的 Web 页面、华为云直连配置、任务清单和接口字段说明。
 
 ## 目录说明
 
 ```text
 application_web
 │
+├── index.html
 ├── README.md
 ├── 应用端Web任务清单.md
 ├── docs
 │   └── 接口与数据字段约定.md
 │
 └── src
-    ├── assets      # 图片、图标、样式资源
-    ├── components  # 可复用组件，如数据卡片、状态标签、表格
-    ├── pages       # 页面，如仪表盘、设备控制、记录查询
-    ├── services    # 华为云/后端接口请求封装
-    └── mock        # 前期无真实设备时使用的模拟数据
+    ├── assets      # 样式资源
+    ├── components  # 预留组件目录
+    ├── pages       # 预留页面目录
+    ├── services    # 华为云直连配置和请求代码
+    └── mock        # 前期演示用模拟数据
 ```
-
-## 当前阶段目标
-
-前期先完成 Web 应用端的需求拆解、页面结构设计、数据字段约定和静态/模拟数据页面。等组员完成华为云 IoTDA 设备接入后，再把模拟数据替换为真实接口数据，并进行软硬件联调。
 
 ## 运行方式
 
-当前版本是静态页面，不需要安装依赖。直接用浏览器打开 `index.html` 即可查看应用端页面。
+当前版本是静态页面，不需要安装依赖。直接用浏览器打开 `index.html` 即可查看页面。
 
-默认状态不使用假数据，页面会显示“等待云平台数据”。等云平台同学完成华为云 IoTDA 接入后，再把 `src/services/api.js` 里的空数据接口替换为真实接口。
+默认不显示模拟数据，页面会显示“等待云平台数据”。
 
-如需临时查看演示效果，可打开：
+临时看页面效果可以打开：
 
 ```text
 index.html?mock=1
 ```
 
-该模式会启用 `src/mock/mock-data.js` 生成模拟数据，仅用于前期页面调试和备用演示。
+如果要让浏览器直接访问华为云 IoTDA，需要临时绕过 CORS 限制。Windows 下可以直接双击：
 
-## 接入后端接口
+```text
+start_web_cors_test.bat
+```
 
-真实云平台数据接入时，修改：
+该脚本会自动完成两件事：
+
+```text
+1. 在 application_web 目录启动 python -m http.server 8080
+2. 用禁用 CORS 的 Chrome 或 Edge 打开 http://localhost:8080
+```
+
+这只是课程设计本机联调用法。普通浏览器直接打开页面仍然会被华为云 CORS 拦截。
+
+## 华为云直连配置
+
+修改：
 
 ```text
 src/services/config.js
 ```
 
-只需要填写后端服务地址，例如：
+填写华为云 IoTDA 信息：
 
 ```js
 window.LabConfig = {
-  API_BASE_URL: "http://localhost:3000",
-  WS_URL: "ws://localhost:3000/ws",
   DEVICE_ID: "Lab_Device_01",
-  POLL_INTERVAL_MS: 2500
+  POLL_INTERVAL_MS: 2500,
+  DIRECT_HUAWEI: {
+    ENABLED: true,
+    IOTDA_ENDPOINT: "https://你的-iotda-endpoint",
+    PROJECT_ID: "你的-project-id",
+    DEVICE_ID: "Lab_Device_01",
+    IAM_TOKEN: "临时 IAM Token",
+    SERVICE_ID: "LabService",
+    INSTANCE_ID: ""
+  }
 };
 ```
 
-如果后端暂时没有 WebSocket，`WS_URL` 留空即可，页面会使用 HTTP 轮询。
-
-注意：不要把华为云 AK/SK、IAM Token、设备密钥写进本 Web 工程。密钥应该放在云平台同学的后端 `.env` 或服务器环境变量里。
-
-当前 Web 端按《云平台与通信负责人任务书》的接口命名对接：
+页面会直接调用：
 
 ```text
-GET  /api/device/latest
-GET  /api/device/history
-GET  /api/alarm/list
-GET  /api/rfid/list
-POST /api/control/door
-POST /api/control/fan
-POST /api/control/light
-POST /api/control/alarm/reset
+GET  /v5/iot/{project_id}/devices/{device_id}/shadow
+POST /v5/iot/{project_id}/devices/{device_id}/commands
 ```
 
-已实现的前期功能：
+说明：
 
-- 实时环境数据卡片。
-- 设备状态展示。
-- 远程控制按钮和命令反馈。
-- Canvas 数据曲线。
-- RFID 门禁记录。
-- 报警记录。
+- `IOTDA_ENDPOINT`：华为云 IoTDA 应用侧 API 地址。
+- `PROJECT_ID`：华为云项目 ID。
+- `DEVICE_ID`：设备 ID。
+- `IAM_TOKEN`：临时 Token。
+- `SERVICE_ID`：华为云物模型服务 ID，需要和云平台同学创建的服务 ID 一致。
+- `INSTANCE_ID`：如果你的 IoTDA 实例要求 `Instance-Id` 请求头就填写，否则留空。
+
+## 命令下发 400 排查
+
+如果点击“开门”“开风扇”等按钮后浏览器控制台显示：
+
+```text
+华为云命令下发失败：400
+```
+
+通常表示 Web 发出的命令和华为云产品物模型里的命令定义不一致。请检查：
+
+```text
+华为云 IoTDA
+  → 产品
+  → 物模型 / 模型定义
+  → 服务 Sensor
+  → 命令
+```
+
+需要确保已经定义了对应命令，例如：
+
+```text
+openDoor
+closeDoor
+openFan
+closeFan
+openLight
+closeLight
+resetAlarm
+```
+
+并且命令参数名和 `src/services/config.js` 中 `DIRECT_HUAWEI.COMMANDS` 的 `paras` 完全一致。当前默认是：
+
+```js
+openDoor: { command_name: "openDoor", paras: { status: 1 } }
+```
+
+如果云平台命令参数叫 `DoorStatus`，就要改成：
+
+```js
+openDoor: { command_name: "openDoor", paras: { DoorStatus: 1 } }
+```
+
+如果云平台命令名叫 `OpenDoor`，就要改成：
+
+```js
+openDoor: { command_name: "OpenDoor", paras: { status: 1 } }
+```
+
+注意：如果浏览器报 CORS 跨域错误，说明华为云接口不允许浏览器直接跨域访问，前端直连方案会受限制。
+
+## 已实现功能
+
+- 实时数据卡片：温度、湿度、烟雾、光照。
+- 设备状态展示：门锁、灯光、风扇、报警器、人体检测、RFID。
+- 远程控制：开/关门、开/关灯、开/关风扇、解除报警。
+- 查询华为云设备影子。
+- 调用华为云命令下发接口。
+- Canvas 数据曲线区域。
+- RFID 门禁记录和报警记录区域。
 - 手机端响应式布局。
-- mock 数据自动刷新。
-
-说明：页面中不再放实验室区域/传感器点位示意图。首页只保留云平台接入状态、实时数据、设备控制和记录展示。
+- `?mock=1` 模拟数据演示模式。

@@ -4,9 +4,11 @@
   const mockMode = params.get("mock") === "1";
   const clone = (value) => JSON.parse(JSON.stringify(value));
   const config = window.LabConfig || {};
-  const apiBaseUrl = (config.API_BASE_URL || "").replace(/\/$/, "");
-  const wsUrl = config.WS_URL || "";
-  const deviceId = config.DEVICE_ID || "Lab_Device_01";
+  const directHuawei = config.DIRECT_HUAWEI || {};
+  const directHuaweiEnabled = Boolean(directHuawei.ENABLED);
+  const deviceId = directHuaweiEnabled
+    ? directHuawei.DEVICE_ID || config.DEVICE_ID || "Lab_Device_01"
+    : config.DEVICE_ID || "Lab_Device_01";
 
   const emptyStatus = {
     deviceId,
@@ -29,44 +31,38 @@
   async function getStatus() {
     await delay(120);
     if (mockMode && window.LabMock) return window.LabMock.getStatus();
-    if (apiBaseUrl) return normalizeLatestStatus(await getJson("/api/device/latest"));
+    if (directHuaweiEnabled) return normalizeLatestStatus(await getHuaweiShadow());
     return clone(emptyStatus);
   }
 
   async function getHistory() {
     await delay(80);
     if (mockMode && window.LabMock) return window.LabMock.getHistory();
-    if (apiBaseUrl) return getJson("/api/device/history");
     return [];
   }
 
   async function getAccessLogs() {
     await delay(80);
     if (mockMode && window.LabMock) return window.LabMock.getAccessLogs();
-    if (apiBaseUrl) return normalizeRfidLogs(await getJson("/api/rfid/list"));
     return [];
   }
 
   async function getAlarmLogs() {
     await delay(80);
     if (mockMode && window.LabMock) return window.LabMock.getAlarmLogs();
-    if (apiBaseUrl) return normalizeAlarmLogs(await getJson("/api/alarm/list"));
     return [];
   }
 
   async function getFeed() {
     await delay(60);
     if (mockMode && window.LabMock) return window.LabMock.getFeed();
-    if (apiBaseUrl) return [];
     return [];
   }
 
   async function sendCommand(command) {
     await delay(450);
     if (mockMode && window.LabMock) return window.LabMock.command(command);
-    if (apiBaseUrl) {
-      return sendControlCommand(command);
-    }
+    if (directHuaweiEnabled) return sendHuaweiCommand(command);
     return {
       success: false,
       message: `云平台尚未接入，${command} 未下发`
@@ -74,45 +70,31 @@
   }
 
   function normalizeLatestStatus(data) {
+    const source = data.properties ? data.properties : data;
     return {
-      deviceId: data.deviceId || deviceId,
+      deviceId: data.deviceId || data.device_id || deviceId,
       online: data.online !== undefined ? Boolean(data.online) : true,
       updatedAt: data.updatedAt || data.updateTime || data.time || "",
       properties: {
-        temperature: readNumber(data.temperature),
-        humidity: readNumber(data.humidity),
-        smoke: readNumber(data.smoke),
-        light: readNumber(data.light),
-        humanStatus: readStatus(data.humanStatus),
-        doorStatus: readStatus(data.doorStatus),
-        fanStatus: readStatus(data.fanStatus),
-        lightStatus: readStatus(data.lightStatus),
-        alarmStatus: readStatus(data.alarmStatus),
-        rfidStatus: data.rfidStatus || ""
+        temperature: readNumber(readField(source, "temperature", "Temperature")),
+        humidity: readNumber(readField(source, "humidity", "Humidity")),
+        smoke: readNumber(readField(source, "smoke", "Smoke")),
+        light: readNumber(readField(source, "light", "Light")),
+        humanStatus: readStatus(readField(source, "humanStatus", "HumanStatus")),
+        doorStatus: readStatus(readField(source, "doorStatus", "DoorStatus")),
+        fanStatus: readStatus(readField(source, "fanStatus", "FanStatus")),
+        lightStatus: readStatus(readField(source, "lightStatus", "LightStatus")),
+        alarmStatus: readStatus(readField(source, "alarmStatus", "AlarmStatus")),
+        rfidStatus: readField(source, "rfidStatus", "RFIDStatus") || ""
       }
     };
   }
 
-  function normalizeAlarmLogs(list) {
-    if (!Array.isArray(list)) return [];
-    return list.map((item) => ({
-      time: item.time || item.alarmTime || item.createTime || "",
-      type: item.type || item.alarmType || "报警事件",
-      level: item.level || item.alarmLevel || "一般",
-      value: item.value || item.alarmValue || "",
-      status: item.status || item.alarmStatus || "未处理"
-    }));
-  }
-
-  function normalizeRfidLogs(list) {
-    if (!Array.isArray(list)) return [];
-    return list.map((item) => ({
-      time: item.time || item.accessTime || item.createTime || "",
-      cardId: item.cardId || item.rfid || "",
-      person: item.person || item.userType || item.userName || "未知用户",
-      result: item.result || item.accessResult || "",
-      doorAction: item.doorAction || (String(item.accessResult || "").includes("拒绝") ? "拒绝" : "开门")
-    }));
+  function readField(source, ...names) {
+    for (const name of names) {
+      if (source[name] !== undefined && source[name] !== null) return source[name];
+    }
+    return null;
   }
 
   function readNumber(value) {
@@ -127,102 +109,114 @@
     return Number.isNaN(number) ? null : number;
   }
 
-  function sendControlCommand(command) {
-    const controlMap = {
-      openDoor: { path: "/api/control/door", body: { status: 1 } },
-      closeDoor: { path: "/api/control/door", body: { status: 0 } },
-      openFan: { path: "/api/control/fan", body: { status: 1 } },
-      closeFan: { path: "/api/control/fan", body: { status: 0 } },
-      openLight: { path: "/api/control/light", body: { status: 1 } },
-      closeLight: { path: "/api/control/light", body: { status: 0 } },
-      resetAlarm: { path: "/api/control/alarm/reset", body: { status: 0 } }
-    };
-
-    const target = controlMap[command];
-    if (!target) {
-      return Promise.resolve({
-        success: false,
-        message: `未知命令：${command}`
-      });
-    }
-
-    return postJson(target.path, {
-      deviceId,
-      ...target.body
-    });
-  }
-
-  async function getJson(path) {
-    const response = await fetch(`${apiBaseUrl}${path}`, {
+  async function getHuaweiShadow() {
+    const response = await fetch(huaweiUrl(`/v5/iot/${directHuawei.PROJECT_ID}/devices/${deviceId}/shadow`), {
       method: "GET",
-      headers: {
-        Accept: "application/json"
-      }
+      headers: huaweiHeaders()
     });
     if (!response.ok) {
-      throw new Error(`接口请求失败：${response.status}`);
+      const errorText = await response.text();
+      console.error("华为云设备影子查询失败：", response.status, errorText);
+      throw new Error(`华为云设备影子查询失败：${response.status}`);
     }
-    return response.json();
+    const data = await response.json();
+    console.log("华为云设备影子返回：", data);
+    return normalizeHuaweiShadow(data);
   }
 
-  async function postJson(path, body) {
-    const response = await fetch(`${apiBaseUrl}${path}`, {
+  async function sendHuaweiCommand(command) {
+    const controlMap = directHuawei.COMMANDS || {};
+    const target = controlMap[command];
+    if (!target) {
+      return { success: false, message: `未知命令：${command}` };
+    }
+
+    const commandPath =
+      directHuawei.COMMAND_API === "async"
+        ? `/v5/iot/${directHuawei.PROJECT_ID}/devices/${deviceId}/async-commands`
+        : `/v5/iot/${directHuawei.PROJECT_ID}/devices/${deviceId}/commands`;
+    const body =
+      directHuawei.COMMAND_API === "async"
+        ? {
+            service_id: directHuawei.SERVICE_ID || "Sensor",
+            command_name: target.command_name,
+            paras: target.paras,
+            expire_time: 0,
+            send_strategy: "immediately"
+          }
+        : {
+            service_id: directHuawei.SERVICE_ID || "Sensor",
+            command_name: target.command_name,
+            paras: target.paras
+          };
+
+    console.log("华为云命令下发请求：", commandPath, body);
+    const response = await fetch(huaweiUrl(commandPath), {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json"
+        ...huaweiHeaders(),
+        "Content-Type": "application/json"
       },
       body: JSON.stringify(body)
     });
     if (!response.ok) {
-      throw new Error(`命令下发失败：${response.status}`);
+      const errorText = await response.text();
+      console.error("华为云命令下发失败：", response.status, errorText);
+      throw new Error(`华为云命令下发失败：${response.status}`);
     }
-    return response.json();
+    return {
+      success: true,
+      message: "命令已提交到华为云",
+      data: await response.json()
+    };
   }
 
-  function connectRealtime(onMessage, onStateChange) {
-    if (mockMode || !wsUrl || typeof WebSocket === "undefined") {
-      return null;
+  function normalizeHuaweiShadow(data) {
+    const properties = {};
+    const shadow = Array.isArray(data.shadow) ? data.shadow : [];
+    shadow.forEach((service) => {
+      Object.assign(properties, service?.reported?.properties || {});
+    });
+    if (!Object.keys(properties).length) {
+      console.warn("华为云设备影子中没有读取到 reported.properties，原始返回：", data);
+    }
+    return {
+      deviceId,
+      online: true,
+      updatedAt: data.event_time || data.update_time || "",
+      properties
+    };
+  }
+
+  function huaweiUrl(path) {
+    const endpoint = (directHuawei.IOTDA_ENDPOINT || "").replace(/\/$/, "");
+    return `${endpoint}${path}`;
+  }
+
+  function huaweiHeaders() {
+    if (!directHuawei.IOTDA_ENDPOINT || !directHuawei.PROJECT_ID || !directHuawei.IAM_TOKEN) {
+      throw new Error("请先在 config.js 填写 DIRECT_HUAWEI 的 IOTDA_ENDPOINT、PROJECT_ID 和 IAM_TOKEN");
     }
 
-    const socket = new WebSocket(wsUrl);
-
-    socket.addEventListener("open", () => {
-      if (onStateChange) onStateChange("connected");
-      socket.send(JSON.stringify({ type: "subscribe", deviceId }));
-    });
-
-    socket.addEventListener("message", (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        onMessage(data);
-      } catch (error) {
-        onMessage({ type: "unknown", raw: event.data });
-      }
-    });
-
-    socket.addEventListener("close", () => {
-      if (onStateChange) onStateChange("closed");
-    });
-
-    socket.addEventListener("error", () => {
-      if (onStateChange) onStateChange("error");
-    });
-
-    return socket;
+    const headers = {
+      Accept: "application/json",
+      "X-Auth-Token": directHuawei.IAM_TOKEN
+    };
+    if (directHuawei.INSTANCE_ID) {
+      headers["Instance-Id"] = directHuawei.INSTANCE_ID;
+    }
+    return headers;
   }
 
   window.LabApi = {
     isMockMode: mockMode,
-    hasBackend: Boolean(apiBaseUrl),
-    hasWebSocket: Boolean(wsUrl),
+    directHuaweiEnabled,
     deviceId,
     getStatus,
     getHistory,
     getAccessLogs,
     getAlarmLogs,
     getFeed,
-    sendCommand,
-    connectRealtime
+    sendCommand
   };
 })();

@@ -279,40 +279,36 @@
   }
 
   async function refreshAll() {
-    if (window.LabApi.isMockMode && window.LabMock) {
-      window.LabMock.tick();
-    }
-    const [status, history, accessLogs, alarmLogs, feed] = await Promise.all([
-      window.LabApi.getStatus(),
-      window.LabApi.getHistory(),
-      window.LabApi.getAccessLogs(),
-      window.LabApi.getAlarmLogs(),
-      window.LabApi.getFeed()
-    ]);
-
-    updateHeader(status);
-    updateSafety(status);
-    updateMetrics(status.properties);
-    updateDeviceStates(status.properties);
-    drawChart(history);
-    renderAccessLogs(accessLogs);
-    renderAlarmLogs(alarmLogs);
-    renderFeed(feed);
-  }
-
-  function setupRealtime() {
-    const socket = window.LabApi.connectRealtime(
-      () => {
-        refreshAll();
-      },
-      (state) => {
-        if (state === "connected") setCommandState("实时订阅已连接", "done");
-        if (state === "error") setCommandState("实时订阅异常", "fail");
-        if (state === "closed") setCommandState("实时订阅已断开", "");
+    try {
+      if (window.LabApi.isMockMode && window.LabMock) {
+        window.LabMock.tick();
       }
-    );
+      const [status, history, accessLogs, alarmLogs, feed] = await Promise.all([
+        window.LabApi.getStatus(),
+        window.LabApi.getHistory(),
+        window.LabApi.getAccessLogs(),
+        window.LabApi.getAlarmLogs(),
+        window.LabApi.getFeed()
+      ]);
 
-    return socket;
+      updateHeader(status);
+      updateSafety(status);
+      updateMetrics(status.properties);
+      updateDeviceStates(status.properties);
+      drawChart(history);
+      renderAccessLogs(accessLogs);
+      renderAlarmLogs(alarmLogs);
+      renderFeed(feed);
+      if (els.commandState.textContent === "读取失败") {
+        setCommandState("待命", "");
+      }
+    } catch (error) {
+      console.error("页面读取云平台数据失败：", error);
+      els.globalSafety.textContent = "读取失败";
+      els.globalSafety.className = "alert-chip danger";
+      els.lastUpdated.textContent = error.message || "请打开 F12 查看错误";
+      setCommandState("读取失败", "fail");
+    }
   }
 
   function setCommandState(text, className) {
@@ -354,6 +350,5 @@
 
   bindEvents();
   refreshAll();
-  setupRealtime();
   window.setInterval(refreshAll, window.LabConfig?.POLL_INTERVAL_MS || 2500);
 })();
