@@ -110,9 +110,10 @@
   }
 
   async function getHuaweiShadow() {
-    const response = await fetch(huaweiUrl(`/v5/iot/${directHuawei.PROJECT_ID}/devices/${deviceId}/shadow`), {
+    const path = `/v5/iot/${directHuawei.PROJECT_ID}/devices/${deviceId}/shadow`;
+    const response = await fetch(huaweiUrl(path), {
       method: "GET",
-      headers: huaweiHeaders()
+      headers: await huaweiHeaders("GET", path, "")
     });
     if (!response.ok) {
       const errorText = await response.text();
@@ -149,15 +150,13 @@
             command_name: target.command_name,
             paras: target.paras
           };
+    const bodyText = JSON.stringify(body);
 
     console.log("华为云命令下发请求：", commandPath, body);
     const response = await fetch(huaweiUrl(commandPath), {
       method: "POST",
-      headers: {
-        ...huaweiHeaders(),
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(body)
+      headers: await huaweiHeaders("POST", commandPath, bodyText),
+      body: bodyText
     });
     if (!response.ok) {
       const errorText = await response.text();
@@ -193,19 +192,173 @@
     return `${endpoint}${path}`;
   }
 
-  function huaweiHeaders() {
-    if (!directHuawei.IOTDA_ENDPOINT || !directHuawei.PROJECT_ID || !directHuawei.IAM_TOKEN) {
-      throw new Error("请先在 config.js 填写 DIRECT_HUAWEI 的 IOTDA_ENDPOINT、PROJECT_ID 和 IAM_TOKEN");
+  async function huaweiHeaders(method, path, bodyText) {
+    validateHuaweiConfig();
+    if ((directHuawei.AUTH_TYPE || "aksk").toLowerCase() === "token") {
+      return tokenHeaders();
     }
+    return akskHeaders(method, path, bodyText);
+  }
 
+  function validateHuaweiConfig() {
+    if (!directHuawei.IOTDA_ENDPOINT || !directHuawei.PROJECT_ID) {
+      throw new Error("请先在 config.js 填写 IOTDA_ENDPOINT 和 PROJECT_ID");
+    }
+    if ((directHuawei.AUTH_TYPE || "aksk").toLowerCase() === "token") {
+      if (!directHuawei.IAM_TOKEN) throw new Error("请先在 config.js 填写 IAM_TOKEN");
+      return;
+    }
+    if (!directHuawei.AK || !directHuawei.SK) {
+      throw new Error("请先在 config.js 填写 AK 和 SK");
+    }
+    if (!window.crypto?.subtle) {
+      throw new Error("当前浏览器不支持 Web Crypto，请使用 localhost 或 HTTPS 打开页面");
+    }
+  }
+
+  function tokenHeaders() {
     const headers = {
       Accept: "application/json",
       "X-Auth-Token": directHuawei.IAM_TOKEN
     };
+    if (directHuawei.INSTANCE_ID) headers["Instance-Id"] = directHuawei.INSTANCE_ID;
+    return headers;
+  }
+
+  async function akskHeaders(method, path, bodyText) {
+    const url = new URL(huaweiUrl(path));
+    const sdkDate = formatSdkDate(new Date());
+    const headers = {
+      Accept: "application/json",
+      "X-Sdk-Date": sdkDate
+    };
+
+    const signedHeaderValues = {
+      host: url.host,
+      "x-sdk-date": sdkDate
+    };
+
+    if (method.toUpperCase() !== "GET") {
+      headers["Content-Type"] = "application/json";
+      signedHeaderValues["content-type"] = "application/json";
+    }
+
     if (directHuawei.INSTANCE_ID) {
       headers["Instance-Id"] = directHuawei.INSTANCE_ID;
+      signedHeaderValues["instance-id"] = directHuawei.INSTANCE_ID;
     }
+
+    const authorization = await buildAuthorization({
+      method: method.toUpperCase(),
+      url,
+      bodyText,
+      signedHeaderValues
+    });
+    headers.Authorization = authorization;
     return headers;
+  }
+
+  async function buildAuthorization({ method, url, bodyText, signedHeaderValues }) {
+    const algorithm = "V11-HMAC-SHA256";
+    const signedHeaderNames = Object.keys(signedHeaderValues).sort();
+    const canonicalHeaders = signedHeaderNames
+      .map((name) => `${name}:${signedHeaderValues[name]}\n`)
+      .join("");
+    const signedHeaders = signedHeaderNames.join(";");
+    const payloadHash = await sha256Hex(bodyText || "");
+    const canonicalRequest = [
+      method,
+      canonicalUri(url.pathname),
+      canonicalQueryString(url.searchParams),
+      canonicalHeaders,
+      signedHeaders,
+      payloadHash
+    ].join("\n");
+    const info = `${signedHeaderValues["x-sdk-date"].slice(0, 8)}/${directHuawei.REGION_ID || "cn-north-4"}/${directHuawei.DERIVED_AUTH_SERVICE_NAME || "iotda"}`;
+    const stringToSign = [
+      algorithm,
+      signedHeaderValues["x-sdk-date"],
+      info,
+      await sha256Hex(canonicalRequest)
+    ].join("\n");
+    const derivationKey = await getDerivationKey(directHuawei.AK, directHuawei.SK, info);
+    const signature = await hmacSha256Hex(derivationKey, stringToSign);
+    return `${algorithm} Credential=${directHuawei.AK}/${info}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
+  }
+
+  function canonicalUri(pathname) {
+    const encodedPath = pathname
+      .split("/")
+      .map((segment) => encodeURIComponent(decodeURIComponent(segment)).replace(/[!'()*]/g, hexEscape))
+      .join("/") || "/";
+    return encodedPath.endsWith("/") ? encodedPath : `${encodedPath}/`;
+  }
+
+  function canonicalQueryString(searchParams) {
+    return Array.from(searchParams.entries())
+      .sort(([aKey, aValue], [bKey, bValue]) => (aKey === bKey ? aValue.localeCompare(bValue) : aKey.localeCompare(bKey)))
+      .map(([key, value]) => `${encodeURIComponent(key).replace(/[!'()*]/g, hexEscape)}=${encodeURIComponent(value).replace(/[!'()*]/g, hexEscape)}`)
+      .join("&");
+  }
+
+  function formatSdkDate(date) {
+    const pad = (value) => String(value).padStart(2, "0");
+    return `${date.getUTCFullYear()}${pad(date.getUTCMonth() + 1)}${pad(date.getUTCDate())}T${pad(date.getUTCHours())}${pad(date.getUTCMinutes())}${pad(date.getUTCSeconds())}Z`;
+  }
+
+  function hexEscape(char) {
+    return `%${char.charCodeAt(0).toString(16).toUpperCase()}`;
+  }
+
+  async function sha256Hex(text) {
+    const bytes = new TextEncoder().encode(text);
+    const hash = await window.crypto.subtle.digest("SHA-256", bytes);
+    return bufferToHex(hash);
+  }
+
+  async function hmacSha256Hex(secret, text) {
+    return hmacSha256HexByBytes(new TextEncoder().encode(secret), text);
+  }
+
+  async function hmacSha256HexByBytes(secretBytes, text) {
+    const key = await window.crypto.subtle.importKey(
+      "raw",
+      secretBytes,
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign"]
+    );
+    const signature = await window.crypto.subtle.sign("HMAC", key, new TextEncoder().encode(text));
+    return bufferToHex(signature);
+  }
+
+  async function hmacSha256Bytes(secretBytes, messageBytes) {
+    const key = await window.crypto.subtle.importKey(
+      "raw",
+      secretBytes,
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign"]
+    );
+    const signature = await window.crypto.subtle.sign("HMAC", key, messageBytes);
+    return new Uint8Array(signature);
+  }
+
+  async function getDerivationKey(accessKey, secretKey, info) {
+    const encoder = new TextEncoder();
+    const prk = await hmacSha256Bytes(encoder.encode(accessKey), encoder.encode(secretKey));
+    const infoBytes = encoder.encode(info);
+    const expandInput = new Uint8Array(infoBytes.length + 1);
+    expandInput.set(infoBytes, 0);
+    expandInput[expandInput.length - 1] = 1;
+    const okm = await hmacSha256Bytes(prk, expandInput);
+    return bufferToHex(okm.slice(0, 32));
+  }
+
+  function bufferToHex(buffer) {
+    return Array.from(new Uint8Array(buffer))
+      .map((byte) => byte.toString(16).padStart(2, "0"))
+      .join("");
   }
 
   window.LabApi = {

@@ -56,7 +56,7 @@ start_web_cors_test.bat
 src/services/config.js
 ```
 
-填写华为云 IoTDA 信息：
+填写华为云 IoTDA 信息。当前 Web 端默认使用 `credentials.csv` 里的 AK/SK 做签名认证，不再依赖 24 小时过期的 `X-Auth-Token`：
 
 ```js
 window.LabConfig = {
@@ -67,7 +67,10 @@ window.LabConfig = {
     IOTDA_ENDPOINT: "https://你的-iotda-endpoint",
     PROJECT_ID: "你的-project-id",
     DEVICE_ID: "Lab_Device_01",
-    IAM_TOKEN: "临时 IAM Token",
+    AUTH_TYPE: "aksk",
+    AK: "credentials.csv 中的 Access Key Id",
+    SK: "credentials.csv 中的 Secret Access Key",
+    IAM_TOKEN: "",
     SERVICE_ID: "LabService",
     INSTANCE_ID: ""
   }
@@ -86,9 +89,14 @@ POST /v5/iot/{project_id}/devices/{device_id}/commands
 - `IOTDA_ENDPOINT`：华为云 IoTDA 应用侧 API 地址。
 - `PROJECT_ID`：华为云项目 ID。
 - `DEVICE_ID`：设备 ID。
-- `IAM_TOKEN`：临时 Token。
+- `AUTH_TYPE`：认证方式，`aksk` 表示使用 AK/SK 签名认证，`token` 表示使用临时 `X-Auth-Token`。
+- `AK`：`credentials.csv` 中的 `Access Key Id`。
+- `SK`：`credentials.csv` 中的 `Secret Access Key`。
+- `IAM_TOKEN`：临时 Token，只有 `AUTH_TYPE: "token"` 时才需要填写。
 - `SERVICE_ID`：华为云物模型服务 ID，需要和云平台同学创建的服务 ID 一致。
 - `INSTANCE_ID`：如果你的 IoTDA 实例要求 `Instance-Id` 请求头就填写，否则留空。
+
+注意：AK/SK 解决的是 Token 过期问题，但浏览器普通跨域限制仍然存在。课程设计本机演示仍建议使用 `start_web_cors_test.bat` 启动禁用 CORS 的测试浏览器。
 
 ## 命令下发 400 排查
 
