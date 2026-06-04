@@ -23,12 +23,13 @@
       humidity: 58.5,
       smoke: 135,
       light: 640,
-      humanStatus: 1,
       doorStatus: 0,
       fanStatus: 0,
       lightStatus: 1,
       alarmStatus: 0,
-      rfidStatus: "合法用户"
+      rfidStatus: "InternalPerson",
+      rfidCard: "A1B2C3D4",
+      dateTime: dateTimeText(new Date(Date.now() - 90000))
     },
     history: [],
     accessLogs: [
@@ -139,7 +140,9 @@
 
     state.accessLogs.unshift(log);
     state.accessLogs = state.accessLogs.slice(0, 8);
-    state.properties.rfidStatus = legal ? "合法用户" : "非法刷卡";
+    state.properties.rfidStatus = log.person;
+    state.properties.rfidCard = log.cardId;
+    state.properties.dateTime = log.time;
     pushFeed(legal ? "RFID 合法刷卡" : "RFID 非法刷卡", `${log.cardId} ${log.result}`);
 
     if (!legal) {
@@ -159,7 +162,6 @@
     p.humidity = Math.min(84, Math.max(32, Number(nextHumidity.toFixed(1))));
     p.smoke = Math.min(900, Math.max(80, Math.round(nextSmoke)));
     p.light = Math.min(1000, Math.max(100, Math.round(nextLight)));
-    p.humanStatus = Math.random() > 0.2 ? 1 : 0;
 
     if (Math.random() > 0.9) {
       p.smoke = Math.round(randomBetween(660, 850, 0));

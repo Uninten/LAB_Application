@@ -93,13 +93,8 @@
         properties.alarmStatus ? "danger" : properties.alarmStatus === 0 ? "ok" : "neutral"
       ],
       [
-        "人体检测",
-        properties.humanStatus === null ? "等待数据" : properties.humanStatus ? "有人" : "无人",
-        properties.humanStatus ? "warn" : "neutral"
-      ],
-      [
         "RFID",
-        properties.rfidStatus || "等待数据",
+        properties.rfidIdentity || properties.rfidStatus || "等待数据",
         properties.rfidStatus === "非法刷卡" ? "danger" : properties.rfidStatus ? "ok" : "neutral"
       ]
     ];
@@ -168,19 +163,16 @@
 
   function renderAccessLogs(logs) {
     if (!logs.length) {
-      els.accessLogs.innerHTML = `<tr><td colspan="5" class="empty-cell">暂无门禁记录，等待 RFID 数据上报</td></tr>`;
+      els.accessLogs.innerHTML = `<tr><td colspan="3" class="empty-cell">暂无门禁记录，等待 RFID 数据上报</td></tr>`;
       return;
     }
     els.accessLogs.innerHTML = logs
       .map((item) => {
-        const type = item.result.includes("拒绝") ? "danger" : "ok";
         return `
           <tr>
-            <td>${item.time}</td>
+            <td>${item.time || "--"}</td>
             <td>${item.cardId}</td>
             <td>${item.person}</td>
-            <td>${statusTag(item.result, type)}</td>
-            <td>${item.doorAction}</td>
           </tr>
         `;
       })
@@ -247,25 +239,43 @@
     }
 
     const series = [
-      { key: "temperature", color: "#b45309", min: 18, max: 38 },
-      { key: "humidity", color: "#2563eb", min: 25, max: 90 },
-      { key: "smoke", color: "#b91c1c", min: 50, max: 900 },
-      { key: "light", color: "#15803d", min: 50, max: 1000 }
+      { key: "temperature", color: "#b45309", min: 18, max: 38, unit: "℃", digits: 1 },
+      { key: "humidity", color: "#2563eb", min: 25, max: 90, unit: "%", digits: 1 },
+      { key: "smoke", color: "#b91c1c", min: 0, max: 900, unit: "ppm", digits: 0 },
+      { key: "light", color: "#15803d", min: 50, max: 1000, unit: "lx", digits: 0 }
     ];
 
+    const latestLabels = [];
     series.forEach((line) => {
       ctx.beginPath();
       ctx.strokeStyle = line.color;
       ctx.lineWidth = 2.5;
+      let firstPoint = true;
+      let lastPoint = null;
       history.forEach((point, index) => {
+        const rawValue = point[line.key];
+        if (rawValue === null || rawValue === undefined) return;
         const x =
           padding + ((width - padding * 2) / Math.max(1, history.length - 1)) * index;
-        const y = normalize(point[line.key], line.min, line.max, height, padding);
-        if (index === 0) ctx.moveTo(x, y);
+        const y = normalize(rawValue, line.min, line.max, height, padding);
+        if (firstPoint) {
+          ctx.moveTo(x, y);
+          firstPoint = false;
+        }
         else ctx.lineTo(x, y);
+        lastPoint = { x, y, value: rawValue };
       });
       ctx.stroke();
+      if (lastPoint) {
+        latestLabels.push({ ...lastPoint, ...line });
+        ctx.beginPath();
+        ctx.fillStyle = line.color;
+        ctx.arc(lastPoint.x, lastPoint.y, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
     });
+
+    drawLatestLabels(ctx, latestLabels, width, height, padding);
 
     ctx.fillStyle = "#667085";
     ctx.font = "12px Microsoft YaHei, Arial";
@@ -278,13 +288,39 @@
     }
   }
 
+  function drawLatestLabels(ctx, labels, width, height, padding) {
+    const sorted = labels
+      .map((item) => ({
+        ...item,
+        label: `${Number(item.value).toFixed(item.digits)} ${item.unit}`
+      }))
+      .sort((a, b) => a.y - b.y);
+    const rowHeight = 18;
+    let previousY = padding - rowHeight;
+
+    sorted.forEach((item) => {
+      const targetY = Math.max(padding + 10, Math.min(height - padding - 12, item.y));
+      const y = Math.max(targetY, previousY + rowHeight);
+      previousY = y;
+
+      ctx.font = "12px Microsoft YaHei, Arial";
+      const textWidth = ctx.measureText(item.label).width;
+      const x = Math.max(padding + 4, Math.min(width - padding - textWidth - 12, item.x - textWidth - 10));
+
+      ctx.fillStyle = "rgba(255, 255, 255, 0.88)";
+      ctx.fillRect(x - 5, y - 12, textWidth + 10, 16);
+      ctx.fillStyle = item.color;
+      ctx.fillText(item.label, x, y);
+    });
+  }
+
   async function refreshAll() {
     try {
       if (window.LabApi.isMockMode && window.LabMock) {
         window.LabMock.tick();
       }
-      const [status, history, accessLogs, alarmLogs, feed] = await Promise.all([
-        window.LabApi.getStatus(),
+      const status = await window.LabApi.getStatus();
+      const [history, accessLogs, alarmLogs, feed] = await Promise.all([
         window.LabApi.getHistory(),
         window.LabApi.getAccessLogs(),
         window.LabApi.getAlarmLogs(),

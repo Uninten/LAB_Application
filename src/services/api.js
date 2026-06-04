@@ -9,6 +9,8 @@
   const deviceId = directHuaweiEnabled
     ? directHuawei.DEVICE_ID || config.DEVICE_ID || "Lab_Device_01"
     : config.DEVICE_ID || "Lab_Device_01";
+  const directRfidLogs = [];
+  let lastRfidKey = "";
 
   const emptyStatus = {
     deviceId,
@@ -19,31 +21,42 @@
       humidity: null,
       smoke: null,
       light: null,
-      humanStatus: null,
       doorStatus: null,
       fanStatus: null,
       lightStatus: null,
       alarmStatus: null,
-      rfidStatus: ""
+      rfidStatus: "",
+      rfidCardId: "",
+      rfidIdentity: "",
+      rfidEventId: "",
+      rfidTime: ""
     }
   };
+  const directHistory = [];
 
   async function getStatus() {
     await delay(120);
     if (mockMode && window.LabMock) return window.LabMock.getStatus();
-    if (directHuaweiEnabled) return normalizeLatestStatus(await getHuaweiShadow());
+    if (directHuaweiEnabled) {
+      const status = normalizeLatestStatus(await getHuaweiShadow());
+      appendHistoryPoint(status);
+      appendRfidLog(status.properties);
+      return status;
+    }
     return clone(emptyStatus);
   }
 
   async function getHistory() {
     await delay(80);
     if (mockMode && window.LabMock) return window.LabMock.getHistory();
+    if (directHuaweiEnabled) return clone(directHistory);
     return [];
   }
 
   async function getAccessLogs() {
     await delay(80);
     if (mockMode && window.LabMock) return window.LabMock.getAccessLogs();
+    if (directHuaweiEnabled) return clone(directRfidLogs);
     return [];
   }
 
@@ -74,20 +87,73 @@
     return {
       deviceId: data.deviceId || data.device_id || deviceId,
       online: data.online !== undefined ? Boolean(data.online) : true,
-      updatedAt: data.updatedAt || data.updateTime || data.time || "",
+      updatedAt:
+        data.updatedAt ||
+        data.updateTime ||
+        data.time ||
+        cleanText(readField(source, "dateTime", "DateTime")) ||
+        formatDisplayTime(new Date()),
       properties: {
         temperature: readNumber(readField(source, "temperature", "Temperature")),
         humidity: readNumber(readField(source, "humidity", "Humidity")),
         smoke: readNumber(readField(source, "smoke", "Smoke")),
         light: readNumber(readField(source, "light", "Light")),
-        humanStatus: readStatus(readField(source, "humanStatus", "HumanStatus")),
         doorStatus: readStatus(readField(source, "doorStatus", "DoorStatus")),
         fanStatus: readStatus(readField(source, "fanStatus", "FanStatus")),
         lightStatus: readStatus(readField(source, "lightStatus", "LightStatus")),
         alarmStatus: readStatus(readField(source, "alarmStatus", "AlarmStatus")),
-        rfidStatus: readField(source, "rfidStatus", "RFIDStatus") || ""
+        rfidStatus: cleanText(readField(source, "rfidStatus", "RFIDStatus")),
+        rfidCardId: cleanText(readField(source, "rfidCard", "RFIDCard", "rfidCardId", "RFIDCardId")),
+        rfidIdentity: cleanText(readField(source, "rfidIdentity", "RFIDIdentity", "rfidStatus", "RFIDStatus")),
+        rfidEventId: cleanText(readField(source, "rfidEventId", "RFIDEventId", "dateTime", "DateTime")),
+        rfidTime: cleanText(readField(source, "dateTime", "DateTime", "rfidTime", "RFIDTime"))
       }
     };
+  }
+
+  function appendHistoryPoint(status) {
+    const p = status.properties || {};
+    const hasValue = [p.temperature, p.humidity, p.smoke, p.light].some(
+      (value) => value !== null && value !== undefined
+    );
+    if (!hasValue) return;
+
+    directHistory.push({
+      time: formatDisplayTime(status.updatedAt) || formatDisplayTime(new Date()),
+      temperature: p.temperature,
+      humidity: p.humidity,
+      smoke: p.smoke,
+      light: p.light
+    });
+    if (directHistory.length > 60) directHistory.shift();
+  }
+
+  function appendRfidLog(properties) {
+    const cardId = String(properties.rfidCardId || "").trim();
+    const identity = String(properties.rfidIdentity || "").trim();
+    if (!cardId && !identity) return;
+
+    const eventId = String(properties.rfidEventId || properties.rfidTime || "").trim();
+    const key = eventId || `${cardId}|${identity}`;
+    if (!key || key === lastRfidKey) return;
+
+    lastRfidKey = key;
+    directRfidLogs.unshift({
+      time: properties.rfidTime || "--",
+      cardId: cardId || "--",
+      person: identity || "--"
+    });
+    if (directRfidLogs.length > 20) directRfidLogs.pop();
+  }
+
+  function formatDisplayTime(value) {
+    if (!value) return "";
+    if (value instanceof Date) {
+      return value.toLocaleTimeString("zh-CN", { hour12: false });
+    }
+    const text = String(value).trim().replace(/^"|"$/g, "");
+    const match = text.match(/(\d{1,2}:\d{2}:\d{2})/);
+    return match ? match[1] : text;
   }
 
   function readField(source, ...names) {
@@ -107,6 +173,11 @@
     if (value === null || value === undefined || value === "") return null;
     const number = Number(value);
     return Number.isNaN(number) ? null : number;
+  }
+
+  function cleanText(value) {
+    if (value === null || value === undefined) return "";
+    return String(value).trim().replace(/^"|"$/g, "");
   }
 
   async function getHuaweiShadow() {
