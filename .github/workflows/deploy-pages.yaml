@@ -3,7 +3,7 @@ name: Deploy website to GitHub Pages
 on:
   push:
     branches:
-      - web-FZXH0
+      - main
   workflow_dispatch:
 
 permissions:
