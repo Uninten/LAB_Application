@@ -1,0 +1,28 @@
+{
+  "DEVICE_ID": "your-device-id",
+  "POLL_INTERVAL_MS": 2500,
+  "DIRECT_HUAWEI": {
+    "ENABLED": true,
+    "IOTDA_ENDPOINT": "https://your-iotda-endpoint.example.com",
+    "REGION_ID": "cn-north-4",
+    "DERIVED_AUTH_SERVICE_NAME": "iotda",
+    "PROJECT_ID": "your-project-id",
+    "DEVICE_ID": "your-device-id",
+    "AUTH_TYPE": "aksk",
+    "AK": "your-access-key-id",
+    "SK": "your-secret-access-key",
+    "IAM_TOKEN": "",
+    "SERVICE_ID": "Sensor",
+    "COMMAND_API": "sync",
+    "COMMANDS": {
+      "openDoor": { "command_name": "OpenDoor", "paras": { "DoorStatus": 1 } },
+      "closeDoor": { "command_name": "CloseDoor", "paras": { "DoorStatus": 0 } },
+      "openFan": { "command_name": "OpenFan", "paras": { "FanStatus": 1 } },
+      "closeFan": { "command_name": "CloseFan", "paras": { "FanStatus": 0 } },
+      "openLight": { "command_name": "OpenLight", "paras": { "LightStatus": 1 } },
+      "closeLight": { "command_name": "CloseLight", "paras": { "LightStatus": 0 } },
+      "resetAlarm": { "command_name": "ResetAlarm", "paras": { "AlarmStatus": 0 } }
+    },
+    "INSTANCE_ID": ""
+  }
+}

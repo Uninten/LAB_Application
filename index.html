@@ -7,6 +7,24 @@
     <link rel="stylesheet" href="./src/assets/styles.css" />
   </head>
   <body>
+    <section class="config-gate" id="configGate" aria-labelledby="configGateTitle">
+      <div class="config-card">
+        <p class="eyebrow">Local configuration</p>
+        <h2 id="configGateTitle">导入设备配置</h2>
+        <p class="config-description">
+          请选择管理员单独提供的 JSON 配置文件。文件只会在当前浏览器内存中读取，不会上传或保存。
+        </p>
+        <label class="config-file-button" for="configFile">选择配置文件</label>
+        <input id="configFile" class="config-file-input" type="file" accept=".json,application/json" />
+        <p class="config-file-name" id="configFileName">尚未选择文件</p>
+        <p class="config-message" id="configMessage" role="status" aria-live="polite"></p>
+        <p class="config-hint">
+          可<a href="./config.example.json" download>下载配置模板</a>；演示页面可在网址末尾添加
+          <code>?mock=1</code>，无需导入配置。
+        </p>
+      </div>
+    </section>
+
     <div class="app-shell">
       <header class="topbar">
         <div>
@@ -181,9 +199,6 @@
       </main>
     </div>
 
-    <script src="./src/services/config.js?v=20260602-rfid-chart"></script>
-    <script src="./src/mock/mock-data.js?v=20260602-rfid-chart"></script>
-    <script src="./src/services/api.js?v=20260602-rfid-chart"></script>
-    <script src="./src/main.js?v=20260602-rfid-chart"></script>
+    <script src="./src/bootstrap.js?v=20260923-config-import"></script>
   </body>
 </html>

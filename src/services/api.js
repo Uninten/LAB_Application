@@ -273,14 +273,14 @@
 
   function validateHuaweiConfig() {
     if (!directHuawei.IOTDA_ENDPOINT || !directHuawei.PROJECT_ID) {
-      throw new Error("请先在 config.js 填写 IOTDA_ENDPOINT 和 PROJECT_ID");
+      throw new Error("导入的配置缺少 IOTDA_ENDPOINT 或 PROJECT_ID");
     }
     if ((directHuawei.AUTH_TYPE || "aksk").toLowerCase() === "token") {
-      if (!directHuawei.IAM_TOKEN) throw new Error("请先在 config.js 填写 IAM_TOKEN");
+      if (!directHuawei.IAM_TOKEN) throw new Error("导入的配置缺少 IAM_TOKEN");
       return;
     }
     if (!directHuawei.AK || !directHuawei.SK) {
-      throw new Error("请先在 config.js 填写 AK 和 SK");
+      throw new Error("导入的配置缺少 AK 或 SK");
     }
     if (!window.crypto?.subtle) {
       throw new Error("当前浏览器不支持 Web Crypto，请使用 localhost 或 HTTPS 打开页面");
