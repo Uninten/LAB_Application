@@ -364,12 +364,12 @@
     try {
       const result = await window.LabApi.sendCommand(command);
       if (!result.success) throw new Error(result.message);
-      setCommandState("命令成功", "done");
+      setCommandState(result.message || "命令成功", "done");
       await refreshAll();
     } catch (error) {
       setCommandState(error.message || "命令失败", "fail");
     } finally {
-      window.setTimeout(() => setCommandState("待命", ""), 1800);
+      window.setTimeout(() => setCommandState("待命", ""), 5000);
     }
   }
 

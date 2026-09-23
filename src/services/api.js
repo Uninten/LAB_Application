@@ -38,7 +38,15 @@
     await delay(120);
     if (mockMode && window.LabMock) return window.LabMock.getStatus();
     if (directHuaweiEnabled) {
-      const status = normalizeLatestStatus(await getHuaweiShadow());
+      const [shadowStatus, deviceInfo] = await Promise.all([
+        getHuaweiShadow(),
+        getHuaweiDevice().catch((error) => {
+          console.warn("Device status query failed:", error);
+          return null;
+        })
+      ]);
+      if (deviceInfo) shadowStatus.online = deviceInfo.status === "ONLINE";
+      const status = normalizeLatestStatus(shadowStatus);
       appendHistoryPoint(status);
       appendRfidLog(status.properties);
       return status;
@@ -196,6 +204,19 @@
     return normalizeHuaweiShadow(data);
   }
 
+  async function getHuaweiDevice() {
+    const path = `/v5/iot/${directHuawei.PROJECT_ID}/devices/${deviceId}`;
+    const response = await fetch(huaweiUrl(path), {
+      method: "GET",
+      headers: await huaweiHeaders("GET", path, "")
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Device status query failed: HTTP ${response.status} ${errorText}`);
+    }
+    return response.json();
+  }
+
   async function sendHuaweiCommand(command) {
     const controlMap = directHuawei.COMMANDS || {};
     const target = controlMap[command];
@@ -229,23 +250,40 @@
       headers: await huaweiHeaders("POST", commandPath, bodyText),
       body: bodyText
     });
+    const responseText = await response.text();
+    let responseData = {};
+    if (responseText) {
+      try {
+        responseData = JSON.parse(responseText);
+      } catch {
+        responseData = { raw: responseText };
+      }
+    }
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error("华为云命令下发失败：", response.status, errorText);
-      throw new Error(`华为云命令下发失败：${response.status}`);
+      console.error("华为云命令下发失败：", response.status, responseData);
+      const detail = responseData.error_msg || responseData.error_code || responseText;
+      throw new Error(`命令下发失败（HTTP ${response.status}）${detail ? `：${detail}` : ""}`);
+    }
+    if (responseData.error_code) {
+      throw new Error(`设备执行失败：${responseData.error_code}${responseData.error_msg ? ` - ${responseData.error_msg}` : ""}`);
+    }
+    if (responseData.response?.result_code !== undefined && Number(responseData.response.result_code) !== 0) {
+      throw new Error(`设备执行失败，返回码：${responseData.response.result_code}`);
     }
     return {
       success: true,
-      message: "命令已提交到华为云",
-      data: await response.json()
+      message: directHuawei.COMMAND_API === "async" ? "命令已提交到华为云" : "设备已返回执行成功",
+      data: responseData
     };
   }
 
   function normalizeHuaweiShadow(data) {
     const properties = {};
     const shadow = Array.isArray(data.shadow) ? data.shadow : [];
+    const reportedTimes = [];
     shadow.forEach((service) => {
       Object.assign(properties, service?.reported?.properties || {});
+      if (service?.reported?.event_time) reportedTimes.push(service.reported.event_time);
     });
     if (!Object.keys(properties).length) {
       console.warn("华为云设备影子中没有读取到 reported.properties，原始返回：", data);
@@ -253,7 +291,7 @@
     return {
       deviceId,
       online: true,
-      updatedAt: data.event_time || data.update_time || "",
+      updatedAt: reportedTimes.sort().at(-1) || data.event_time || data.update_time || "",
       properties
     };
   }

@@ -72,9 +72,9 @@
   async function start(config) {
     if (appStarted) return;
     window.LabConfig = config;
-    await loadScript("./src/mock/mock-data.js?v=20260923-config-import");
-    await loadScript("./src/services/api.js?v=20260923-config-import");
-    await loadScript("./src/main.js?v=20260923-config-import");
+    await loadScript("./src/mock/mock-data.js?v=20260923-device-diagnostics");
+    await loadScript("./src/services/api.js?v=20260923-device-diagnostics");
+    await loadScript("./src/main.js?v=20260923-device-diagnostics");
     appStarted = true;
     gate.hidden = true;
   }
